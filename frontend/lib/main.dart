@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'screens/home_screen.dart';
+import 'widgets/navbar.dart';
 
 void main() {
   runApp(const DeepTrackApp());
@@ -17,7 +17,7 @@ class DeepTrackApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
       ),
-      home: const HomeScreen(),
+      home: const MainNavigation(),
     );
   }
 }

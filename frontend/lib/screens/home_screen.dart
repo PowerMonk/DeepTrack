@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/progressbar.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -202,78 +203,39 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Column(
       children: [
-        _buildProgressBar(
-          'Work',
-          currentData['work']!,
-          currentGoals['work']!,
-          Colors.blue,
+        CustomProgressBar(
+          label: 'Work',
+          current: currentData['work']!,
+          goal: currentGoals['work']!,
+          color: Colors.blue,
         ),
         const SizedBox(height: 16),
-        _buildProgressBar(
-          'Study',
-          currentData['study']!,
-          currentGoals['study']!,
-          Colors.green,
+        CustomProgressBar(
+          label: 'Study',
+          current: currentData['study']!,
+          goal: currentGoals['study']!,
+          color: Colors.green,
         ),
         const SizedBox(height: 16),
-        _buildProgressBar(
-          'Exercise',
-          currentData['exercise']!,
-          currentGoals['exercise']!,
-          Colors.orange,
+        CustomProgressBar(
+          label: 'Exercise',
+          current: currentData['exercise']!,
+          goal: currentGoals['exercise']!,
+          color: Colors.orange,
         ),
         const SizedBox(height: 16),
-        _buildProgressBar(
-          'Social Time',
-          currentData['social']!,
-          currentGoals['social']!,
-          Colors.purple,
+        CustomProgressBar(
+          label: 'Social Time',
+          current: currentData['social']!,
+          goal: currentGoals['social']!,
+          color: Colors.purple,
         ),
         const SizedBox(height: 16),
-        _buildProgressBar(
-          'Rest',
-          currentData['rest']!,
-          currentGoals['rest']!,
-          Colors.indigo,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildProgressBar(
-    String label,
-    double current,
-    double goal,
-    Color color,
-  ) {
-    final progress = (current / goal).clamp(0.0, 1.0);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: Colors.black87,
-              ),
-            ),
-            Text(
-              '${current.toStringAsFixed(1)}h / ${goal.toStringAsFixed(0)}h',
-              style: const TextStyle(fontSize: 14, color: Colors.black54),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        LinearProgressIndicator(
-          value: progress,
-          backgroundColor: Colors.grey[300],
-          valueColor: AlwaysStoppedAnimation<Color>(color),
-          minHeight: 8,
+        CustomProgressBar(
+          label: 'Rest',
+          current: currentData['rest']!,
+          goal: currentGoals['rest']!,
+          color: Colors.indigo,
         ),
       ],
     );
@@ -281,84 +243,92 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildActivityCards() {
     final activities = [
-      {'name': 'Study', 'icon': Icons.menu_book, 'color': Colors.green},
-      {'name': 'Work', 'icon': Icons.computer, 'color': Colors.blue},
+      {'name': 'Study', 'icon': Icons.book_outlined, 'color': Colors.black},
+      {'name': 'Work', 'icon': Icons.computer_outlined, 'color': Colors.black},
       {
         'name': 'Exercise',
-        'icon': Icons.fitness_center,
-        'color': Colors.orange,
+        'icon': Icons.fitness_center_outlined,
+        'color': Colors.black,
       },
-      {'name': 'Social Time', 'icon': Icons.people, 'color': Colors.purple},
+      {
+        'name': 'Social Time',
+        'icon': Icons.people_alt_outlined,
+        'color': Colors.black,
+      },
     ];
 
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-        childAspectRatio: 1.2,
-      ),
-      itemCount: activities.length,
-      itemBuilder: (context, index) {
-        final activity = activities[index];
-        final activityName = activity['name'] as String;
-        final isActive =
-            activeActivity == activityName.toLowerCase().replaceAll(' ', '');
+    return Container(
+      margin: const EdgeInsets.all(16.0), // Increased margin
+      child: GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          crossAxisSpacing: 16,
+          mainAxisSpacing: 16,
+          childAspectRatio: 1.2, // Slightly increased aspect ratio
+        ),
+        itemCount: activities.length,
+        itemBuilder: (context, index) {
+          final activity = activities[index];
+          final activityName = activity['name'] as String;
+          final isActive =
+              activeActivity == activityName.toLowerCase().replaceAll(' ', '');
 
-        return GestureDetector(
-          onTap: () =>
-              _toggleActivity(activityName.toLowerCase().replaceAll(' ', '')),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            transform: Matrix4.identity()..scale(isActive ? 1.05 : 1.0),
-            child: Card(
-              elevation: isActive ? 8 : 4,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              color: isActive ? activity['color'] as Color : Colors.white,
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      activity['icon'] as IconData,
-                      size: 48,
-                      color: isActive
-                          ? Colors.white
-                          : activity['color'] as Color,
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      activityName,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: isActive ? Colors.white : Colors.black87,
+          return GestureDetector(
+            onTap: () =>
+                _toggleActivity(activityName.toLowerCase().replaceAll(' ', '')),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              transform: Matrix4.identity()
+                ..scale(isActive ? 1.03 : 1.0), // Reduced scale
+              child: Card(
+                elevation: isActive ? 8 : 4,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                color: isActive ? activity['color'] as Color : Colors.white,
+                child: Padding(
+                  padding: const EdgeInsets.all(12.0), // Reduced padding
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        activity['icon'] as IconData,
+                        size: 40, // Slightly smaller icon
+                        color: isActive
+                            ? Colors.white
+                            : activity['color'] as Color,
                       ),
-                      textAlign: TextAlign.center,
-                    ),
-                    if (isActive) ...[
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Recording...',
+                      const SizedBox(height: 8), // Reduced spacing
+                      Text(
+                        activityName,
                         style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.white70,
-                          fontStyle: FontStyle.italic,
+                          fontSize: 14, // Smaller font
+                          fontWeight: FontWeight.w600,
+                          color: isActive ? Colors.white : Colors.black87,
                         ),
+                        textAlign: TextAlign.center,
                       ),
+                      if (isActive) ...[
+                        const SizedBox(height: 4), // Reduced spacing
+                        const Text(
+                          'Recording...',
+                          style: TextStyle(
+                            fontSize: 11, // Smaller font
+                            color: Colors.white70,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }
