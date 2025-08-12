@@ -92,26 +92,33 @@ class _HomeScreenState extends State<HomeScreen> {
         toolbarHeight: 80,
         title: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Row(
             children: [
-              const SizedBox(height: 8),
-              const Text(
-                'DeepTrack',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
-                  fontSize: 24,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                _getCurrentDate(),
-                style: const TextStyle(
-                  fontSize: 16,
-                  color: Colors.black54,
-                  fontWeight: FontWeight.normal,
-                ),
+              // Add bat icon to the app bar
+              Image.asset('assets/images/baticon.png', height: 32, width: 32),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 8),
+                  const Text(
+                    'DeepTrack',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                      fontSize: 24,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _getCurrentDate(),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      color: Colors.black54,
+                      fontWeight: FontWeight.normal,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -190,7 +197,7 @@ class _HomeScreenState extends State<HomeScreen> {
           style: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
-            color: Colors.indigo,
+            color: Colors.blueAccent,
           ),
         ),
       ),
@@ -235,7 +242,7 @@ class _HomeScreenState extends State<HomeScreen> {
           label: 'Rest',
           current: currentData['rest']!,
           goal: currentGoals['rest']!,
-          color: Colors.indigo,
+          color: Colors.black,
         ),
       ],
     );
@@ -243,17 +250,17 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildActivityCards() {
     final activities = [
-      {'name': 'Study', 'icon': Icons.book_outlined, 'color': Colors.black},
-      {'name': 'Work', 'icon': Icons.computer_outlined, 'color': Colors.black},
+      {'name': 'Study', 'icon': Icons.book_outlined, 'color': Colors.green},
+      {'name': 'Work', 'icon': Icons.computer_outlined, 'color': Colors.blue},
       {
         'name': 'Exercise',
         'icon': Icons.fitness_center_outlined,
-        'color': Colors.black,
+        'color': Colors.orange,
       },
       {
         'name': 'Social Time',
         'icon': Icons.people_alt_outlined,
-        'color': Colors.black,
+        'color': Colors.purple,
       },
     ];
 

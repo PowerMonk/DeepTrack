@@ -14,7 +14,7 @@ class DeepTrackApp extends StatelessWidget {
       title: 'DeepTrack',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.black),
         useMaterial3: true,
       ),
       home: const MainNavigation(),

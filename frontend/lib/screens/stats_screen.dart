@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'dart:math' as math;
+import '../services/usage_stats_service.dart';
 
 class StatsScreen extends StatefulWidget {
   const StatsScreen({super.key});
@@ -8,7 +10,11 @@ class StatsScreen extends StatefulWidget {
 }
 
 class _StatsScreenState extends State<StatsScreen> {
-  bool isDaily = true;
+  String currentPeriod = 'Daily'; // Daily, Weekly, Monthly
+  Map<String, double> realSocialMediaData = {};
+  List<String> installedSocialApps = [];
+  bool hasPermission = false;
+  bool isLoadingUsageData = true;
 
   // Mock data for statistics
   final Map<String, Map<String, double>> statsData = {
@@ -16,19 +22,26 @@ class _StatsScreenState extends State<StatsScreen> {
       'work': 2.5,
       'study': 1.8,
       'exercise': 0.5,
-      'social': 1.2,
+      'social': 3.2,
       'rest': 6.0,
     },
     'weekly': {
       'work': 15.0,
       'study': 12.5,
       'exercise': 3.5,
-      'social': 8.0,
+      'social': 22.4,
       'rest': 42.0,
+    },
+    'monthly': {
+      'work': 65.0,
+      'study': 52.0,
+      'exercise': 15.5,
+      'social': 95.6,
+      'rest': 180.0,
     },
   };
 
-  final Map<String, double> goals = {
+  final Map<String, double> dailyGoals = {
     'work': 8.0,
     'study': 4.0,
     'exercise': 1.0,
@@ -43,6 +56,57 @@ class _StatsScreenState extends State<StatsScreen> {
     'social': 10.0,
     'rest': 56.0,
   };
+
+  final Map<String, double> monthlyGoals = {
+    'work': 160.0,
+    'study': 80.0,
+    'exercise': 30.0,
+    'social': 40.0,
+    'rest': 240.0,
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeUsageData();
+  }
+
+  Future<void> _initializeUsageData() async {
+    try {
+      hasPermission = await UsageStatsService.hasUsageStatsPermission();
+
+      if (hasPermission) {
+        installedSocialApps = await UsageStatsService.getInstalledSocialApps();
+        realSocialMediaData = await UsageStatsService.getSocialMediaUsage();
+
+        // Filter to only show installed apps or fallback to YouTube and Instagram
+        if (realSocialMediaData.isEmpty) {
+          realSocialMediaData = {'Instagram': 0.0, 'YouTube': 0.0};
+        } else {
+          // Keep only the apps that are actually installed
+          realSocialMediaData = Map.fromEntries(
+            realSocialMediaData.entries.where(
+              (entry) =>
+                  installedSocialApps.contains(entry.key) ||
+                  ['Instagram', 'YouTube'].contains(entry.key),
+            ),
+          );
+        }
+      } else {
+        // Use fallback data as requested
+        realSocialMediaData = {'Instagram': 0.0, 'YouTube': 0.0};
+        installedSocialApps = ['Instagram', 'YouTube'];
+      }
+    } catch (e) {
+      print('Error initializing usage data: $e');
+      realSocialMediaData = {'Instagram': 0.0, 'YouTube': 0.0};
+      installedSocialApps = ['Instagram', 'YouTube'];
+    } finally {
+      setState(() {
+        isLoadingUsageData = false;
+      });
+    }
+  }
 
   String _getCurrentDate() {
     final now = DateTime.now();
@@ -63,6 +127,28 @@ class _StatsScreenState extends State<StatsScreen> {
     return '${months[now.month - 1]} ${now.day}, ${now.year}';
   }
 
+  Map<String, double> _getCurrentGoals() {
+    switch (currentPeriod) {
+      case 'Weekly':
+        return weeklyGoals;
+      case 'Monthly':
+        return monthlyGoals;
+      default:
+        return dailyGoals;
+    }
+  }
+
+  Map<String, double> _getCurrentData() {
+    switch (currentPeriod) {
+      case 'Weekly':
+        return statsData['weekly']!;
+      case 'Monthly':
+        return statsData['monthly']!;
+      default:
+        return statsData['daily']!;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     const backgroundColor = Color.fromARGB(255, 250, 250, 250);
@@ -80,10 +166,10 @@ class _StatsScreenState extends State<StatsScreen> {
             children: [
               const SizedBox(height: 8),
               const Text(
-                'Statistics',
+                'Your Stats',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
-                  color: Colors.black87,
+                  color: Colors.black,
                   fontSize: 24,
                 ),
               ),
@@ -104,26 +190,256 @@ class _StatsScreenState extends State<StatsScreen> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            // Summary Card
-            _buildSummaryCard(),
+            // Permission warning if needed
+            if (!hasPermission) _buildPermissionWarning(),
+            // Bar Chart Card
+            _buildBarChartCard(),
             const SizedBox(height: 24),
-            // Statistics Cards
-            _buildStatsCards(),
+            // Social Media Pie Chart
+            _buildSocialMediaCard(),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildSummaryCard() {
-    final currentData = statsData[isDaily ? 'daily' : 'weekly']!;
-    final currentGoals = isDaily ? goals : weeklyGoals;
-    final totalHours = currentData.values.reduce((a, b) => a + b);
-    final totalGoalHours = currentGoals.values.reduce((a, b) => a + b);
-    final completionPercentage = (totalHours / totalGoalHours * 100).clamp(
-      0,
-      100,
+  Widget _buildPermissionWarning() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Card(
+        elevation: 4,
+        color: Colors.orange[50],
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.info, color: Colors.orange),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Usage stats permission needed for real social media data',
+                      style: TextStyle(
+                        color: Colors.orange[800],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: () async {
+                  await UsageStatsService.requestUsageStatsPermission();
+                  // Refresh data after user potentially grants permission
+                  await Future.delayed(const Duration(seconds: 2));
+                  await _initializeUsageData();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Grant Permission'),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
+  }
+
+  Widget _buildBarChartCard() {
+    return Card(
+      elevation: 4,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Activity Overview',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildPeriodToggle(),
+            const SizedBox(height: 24),
+            _buildBarChart(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPeriodToggle() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: ['Daily', 'Weekly', 'Monthly'].map((period) {
+        final isSelected = currentPeriod == period;
+        return GestureDetector(
+          onTap: () => setState(() => currentPeriod = period),
+          child: Container(
+            margin: const EdgeInsets.only(right: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: isSelected ? Colors.black : Colors.transparent,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.black),
+            ),
+            child: Text(
+              period,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: isSelected ? Colors.white : Colors.black,
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildBarChart() {
+    final currentData = _getCurrentData();
+    final currentGoals = _getCurrentGoals();
+
+    final activities = [
+      {'name': 'Work', 'key': 'work', 'color': Colors.blue},
+      {'name': 'Study', 'key': 'study', 'color': Colors.green},
+      {'name': 'Exercise', 'key': 'exercise', 'color': Colors.orange},
+      {'name': 'Social', 'key': 'social', 'color': Colors.purple},
+      {'name': 'Rest', 'key': 'rest', 'color': Colors.black},
+    ];
+
+    final maxValue = currentGoals.values.reduce(math.max);
+
+    return Container(
+      height: 300,
+      child: Column(
+        children: [
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: activities.map((activity) {
+                final key = activity['key'] as String;
+                final actualValue = currentData[key]!;
+                final goalValue = currentGoals[key]!;
+                final actualHeight = (actualValue / maxValue) * 250;
+                final goalHeight = (goalValue / maxValue) * 250;
+
+                return Expanded(
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    child: Stack(
+                      alignment: Alignment.bottomCenter,
+                      children: [
+                        // Goal bar (gray background)
+                        Container(
+                          height: goalHeight,
+                          width: 24,
+                          decoration: BoxDecoration(
+                            color: Colors.grey[300],
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                        // Actual bar (colored)
+                        Container(
+                          height: actualHeight,
+                          width: 24,
+                          decoration: BoxDecoration(
+                            color: activity['color'] as Color,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Labels
+          Row(
+            children: activities.map((activity) {
+              return Expanded(
+                child: Text(
+                  activity['name'] as String,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.black54,
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 12),
+          // Legend
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 12,
+                height: 12,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 4),
+              const Text(
+                'Goal',
+                style: TextStyle(fontSize: 12, color: Colors.black54),
+              ),
+              const SizedBox(width: 16),
+              Container(
+                width: 12,
+                height: 12,
+                decoration: BoxDecoration(
+                  color: Colors.blue,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 4),
+              const Text(
+                'Actual',
+                style: TextStyle(fontSize: 12, color: Colors.black54),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSocialMediaCard() {
+    if (isLoadingUsageData) {
+      return Card(
+        elevation: 4,
+        color: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: const Padding(
+          padding: EdgeInsets.all(20.0),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+
+    final totalSocialTime = realSocialMediaData.values.isEmpty
+        ? 0.0
+        : realSocialMediaData.values.reduce((a, b) => a + b);
+    final couldHaveBeenTimeMinutes =
+        totalSocialTime * 60; // Convert hours to minutes
 
     return Card(
       elevation: 4,
@@ -138,274 +454,195 @@ class _StatsScreenState extends State<StatsScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
-                  'Overview',
+                  'Social Media Usage',
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: Colors.black87,
+                    color: Colors.black,
                   ),
                 ),
-                _buildToggleButton(),
+                if (hasPermission)
+                  GestureDetector(
+                    onTap: _initializeUsageData,
+                    child: const Icon(
+                      Icons.refresh,
+                      color: Colors.black54,
+                      size: 20,
+                    ),
+                  ),
               ],
             ),
             const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildSummaryItem(
-                    'Total Hours',
-                    '${totalHours.toStringAsFixed(1)}h',
-                    Colors.blue,
-                    Icons.access_time,
+            if (totalSocialTime > 0) ...[
+              Row(
+                children: [
+                  // Pie Chart
+                  SizedBox(
+                    width: 120,
+                    height: 120,
+                    child: CustomPaint(
+                      painter: PieChartPainter(realSocialMediaData),
+                    ),
+                  ),
+                  const SizedBox(width: 20),
+                  // Legend
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: realSocialMediaData.entries.map((entry) {
+                        final percentage =
+                            (entry.value / totalSocialTime * 100);
+                        final colors = [
+                          Colors.red,
+                          Colors.blue,
+                          Colors.purple,
+                          Colors.orange,
+                        ];
+                        final colorIndex = realSocialMediaData.keys
+                            .toList()
+                            .indexOf(entry.key);
+
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 12,
+                                height: 12,
+                                decoration: BoxDecoration(
+                                  color: colors[colorIndex % colors.length],
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  '${entry.key} (${percentage.toStringAsFixed(1)}%)',
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.red[50],
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.red[200]!),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.warning, color: Colors.red, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'You could have spent ${couldHaveBeenTimeMinutes.round()} minutes on more productive activities instead of social media.',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.red,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ] else ...[
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(40.0),
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.phone_android,
+                        size: 48,
+                        color: Colors.black54,
+                      ),
+                      SizedBox(height: 16),
+                      Text(
+                        'No social media usage detected today',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.black54,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'Great job staying focused!',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.green,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildSummaryItem(
-                    'Completion',
-                    '${completionPercentage.toStringAsFixed(0)}%',
-                    Colors.green,
-                    Icons.check_circle,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ],
         ),
       ),
     );
   }
+}
 
-  Widget _buildSummaryItem(
-    String label,
-    String value,
-    Color color,
-    IconData icon,
-  ) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, color: color, size: 32),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: const TextStyle(fontSize: 14, color: Colors.black54),
-          ),
-        ],
-      ),
-    );
+class PieChartPainter extends CustomPainter {
+  final Map<String, double> data;
+
+  PieChartPainter(this.data);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (data.isEmpty) return;
+
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = math.min(size.width, size.height) / 2;
+    final total = data.values.reduce((a, b) => a + b);
+
+    final colors = [Colors.red, Colors.blue, Colors.purple, Colors.orange];
+
+    double startAngle = -math.pi / 2;
+    int colorIndex = 0;
+
+    for (final entry in data.entries) {
+      final sweepAngle = (entry.value / total) * 2 * math.pi;
+
+      final paint = Paint()
+        ..color = colors[colorIndex % colors.length]
+        ..style = PaintingStyle.fill;
+
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        startAngle,
+        sweepAngle,
+        true,
+        paint,
+      );
+
+      startAngle += sweepAngle;
+      colorIndex++;
+    }
+
+    // Draw center circle for donut effect
+    final centerPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.fill;
+
+    canvas.drawCircle(center, radius * 0.4, centerPaint);
   }
 
-  Widget _buildToggleButton() {
-    return GestureDetector(
-      onTap: () => setState(() => isDaily = !isDaily),
-      child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 300),
-        transitionBuilder: (Widget child, Animation<double> animation) {
-          return FadeTransition(
-            opacity: animation,
-            child: SlideTransition(
-              position:
-                  Tween<Offset>(
-                    begin: const Offset(0.0, 0.3),
-                    end: Offset.zero,
-                  ).animate(
-                    CurvedAnimation(parent: animation, curve: Curves.easeInOut),
-                  ),
-              child: child,
-            ),
-          );
-        },
-        child: Text(
-          isDaily ? 'Daily' : 'Weekly',
-          key: ValueKey<bool>(isDaily),
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: Colors.blue,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatsCards() {
-    final currentData = statsData[isDaily ? 'daily' : 'weekly']!;
-    final currentGoals = isDaily ? goals : weeklyGoals;
-
-    final activities = [
-      {
-        'name': 'Work',
-        'key': 'work',
-        'icon': Icons.computer,
-        'color': Colors.blue,
-      },
-      {
-        'name': 'Study',
-        'key': 'study',
-        'icon': Icons.menu_book,
-        'color': Colors.green,
-      },
-      {
-        'name': 'Exercise',
-        'key': 'exercise',
-        'icon': Icons.fitness_center,
-        'color': Colors.orange,
-      },
-      {
-        'name': 'Social Time',
-        'key': 'social',
-        'icon': Icons.people,
-        'color': Colors.purple,
-      },
-      {
-        'name': 'Rest',
-        'key': 'rest',
-        'icon': Icons.bedtime,
-        'color': Colors.indigo,
-      },
-    ];
-
-    return Column(
-      children: activities.map((activity) {
-        final key = activity['key'] as String;
-        final current = currentData[key]!;
-        final goal = currentGoals[key]!;
-        final percentage = (current / goal * 100).clamp(0, 100);
-        final status = percentage >= 100
-            ? 'Completed'
-            : percentage >= 80
-            ? 'Almost there'
-            : percentage >= 50
-            ? 'In progress'
-            : 'Just started';
-
-        return Container(
-          margin: const EdgeInsets.only(bottom: 16),
-          child: Card(
-            elevation: 4,
-            color: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: (activity['color'] as Color).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Icon(
-                          activity['icon'] as IconData,
-                          color: activity['color'] as Color,
-                          size: 24,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              activity['name'] as String,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.black87,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              status,
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: percentage >= 80
-                                    ? Colors.green
-                                    : Colors.black54,
-                                fontWeight: percentage >= 80
-                                    ? FontWeight.w500
-                                    : FontWeight.normal,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            '${current.toStringAsFixed(1)}h',
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                            ),
-                          ),
-                          Text(
-                            'of ${goal.toStringAsFixed(0)}h',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.black54,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  LinearProgressIndicator(
-                    value: percentage / 100,
-                    backgroundColor: Colors.grey[300],
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      activity['color'] as Color,
-                    ),
-                    minHeight: 6,
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        '${percentage.toStringAsFixed(0)}% completed',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.black54,
-                        ),
-                      ),
-                      Text(
-                        '${(goal - current).toStringAsFixed(1)}h remaining',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.black54,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
