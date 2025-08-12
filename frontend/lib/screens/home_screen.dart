@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../widgets/progressbar.dart';
+import '../services/time_tracking_service.dart';
+import '../services/goals_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -12,40 +14,77 @@ class _HomeScreenState extends State<HomeScreen> {
   bool isDaily = true;
   String? activeActivity;
   DateTime? startTime;
-
-  // Mock data for progress
-  final Map<String, Map<String, double>> progressData = {
-    'daily': {
-      'work': 2.5,
-      'study': 1.8,
-      'exercise': 0.5,
-      'social': 1.2,
-      'rest': 6.0,
-    },
-    'weekly': {
-      'work': 15.0,
-      'study': 12.5,
-      'exercise': 3.5,
-      'social': 8.0,
-      'rest': 42.0,
-    },
+  Map<String, int> dailyData = {
+    'work': 0,
+    'study': 0,
+    'exercise': 0,
+    'social': 0,
+    'rest': 0,
   };
+  Map<String, double> dailyGoals = {};
+  Map<String, double> weeklyGoals = {};
 
-  final Map<String, double> goals = {
-    'work': 8.0,
-    'study': 4.0,
-    'exercise': 1.0,
-    'social': 2.0,
-    'rest': 8.0,
-  };
+  @override
+  void initState() {
+    super.initState();
+    _loadCurrentActivity();
+    _loadDailyData();
+    _loadGoals();
+    TimeTrackingService.checkAndSaveToDatabaseIfNeeded();
+  }
 
-  final Map<String, double> weeklyGoals = {
-    'work': 40.0,
-    'study': 20.0,
-    'exercise': 7.0,
-    'social': 10.0,
-    'rest': 56.0,
-  };
+  Future<void> _loadGoals() async {
+    final daily = await GoalsService.getDailyGoalsHours();
+    final weekly = await GoalsService.getWeeklyGoalsHours();
+    if (mounted) {
+      setState(() {
+        dailyGoals = daily;
+        weeklyGoals = weekly;
+      });
+    }
+  }
+
+  Future<void> _debugPrintData() async {
+    final data = await TimeTrackingService.getDailyData();
+    final current = await TimeTrackingService.getCurrentActivity();
+    print('=== DEBUG INFO ===');
+    print('Current Activity: $current');
+    print('Daily Data: $data');
+    print('Daily Hours: $dailyHours');
+    print('=================');
+  }
+
+  Future<void> _loadCurrentActivity() async {
+    final current = await TimeTrackingService.getCurrentActivity();
+    if (mounted) {
+      setState(() {
+        activeActivity = current;
+      });
+    }
+    print('Loaded current activity: $current');
+  }
+
+  Future<void> _loadDailyData() async {
+    final data = await TimeTrackingService.getDailyData();
+    if (mounted) {
+      setState(() {
+        dailyData = data;
+      });
+    }
+    print('Loaded daily data: $data');
+  }
+
+  // Convert minutes to hours for display
+  Map<String, double> get dailyHours {
+    return dailyData.map(
+      (key, value) => MapEntry(key, TimeTrackingService.minutesToHours(value)),
+    );
+  }
+
+  // Weekly data (multiply daily by 7 for now - you can implement proper weekly tracking later)
+  Map<String, double> get weeklyHours {
+    return dailyHours.map((key, value) => MapEntry(key, value * 7));
+  }
 
   String _getCurrentDate() {
     final now = DateTime.now();
@@ -66,18 +105,32 @@ class _HomeScreenState extends State<HomeScreen> {
     return '${months[now.month - 1]} ${now.day}, ${now.year}';
   }
 
-  void _toggleActivity(String activity) {
-    setState(() {
-      if (activeActivity == activity) {
-        // Stop recording
+  Future<void> _toggleActivity(String activity) async {
+    print('=== BUTTON PRESSED: $activity ===');
+
+    if (activeActivity == activity) {
+      // Stop current activity
+      print('Stopping current activity: $activity');
+      await TimeTrackingService.stopCurrentActivity();
+      setState(() {
         activeActivity = null;
         startTime = null;
-      } else {
-        // Start recording
+      });
+      print('Activity stopped successfully');
+    } else {
+      // Start new activity (this will stop any current activity first)
+      print('Starting new activity: $activity');
+      await TimeTrackingService.startActivity(activity);
+      setState(() {
         activeActivity = activity;
         startTime = DateTime.now();
-      }
-    });
+      });
+      print('Activity started at: ${DateTime.now()}');
+    }
+
+    // Reload daily data to show updated progress
+    await _loadDailyData();
+    await _debugPrintData();
   }
 
   @override
@@ -128,6 +181,38 @@ class _HomeScreenState extends State<HomeScreen> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
+            // Debug info card (remove this later)
+            if (activeActivity != null)
+              Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                child: Card(
+                  color: Colors.blue[50],
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      children: [
+                        Text(
+                          'DEBUG: Currently tracking $activeActivity',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Started at: ${startTime?.toString() ?? "Unknown"}',
+                          style: const TextStyle(color: Colors.blue),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Minutes tracked today: ${dailyData.values.reduce((a, b) => a + b)}',
+                          style: const TextStyle(color: Colors.blue),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             // Progress Card
             _buildProgressCard(),
             const SizedBox(height: 24),
@@ -205,43 +290,43 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildProgressBars() {
-    final currentData = progressData[isDaily ? 'daily' : 'weekly']!;
-    final currentGoals = isDaily ? goals : weeklyGoals;
+    final currentData = isDaily ? dailyHours : weeklyHours;
+    final currentGoals = isDaily ? dailyGoals : weeklyGoals;
 
     return Column(
       children: [
         CustomProgressBar(
           label: 'Work',
-          current: currentData['work']!,
-          goal: currentGoals['work']!,
+          current: currentData['work'] ?? 0.0,
+          goal: currentGoals['work'] ?? 8.0,
           color: Colors.blue,
         ),
         const SizedBox(height: 16),
         CustomProgressBar(
           label: 'Study',
-          current: currentData['study']!,
-          goal: currentGoals['study']!,
+          current: currentData['study'] ?? 0.0,
+          goal: currentGoals['study'] ?? 4.0,
           color: Colors.green,
         ),
         const SizedBox(height: 16),
         CustomProgressBar(
           label: 'Exercise',
-          current: currentData['exercise']!,
-          goal: currentGoals['exercise']!,
+          current: currentData['exercise'] ?? 0.0,
+          goal: currentGoals['exercise'] ?? 1.0,
           color: Colors.orange,
         ),
         const SizedBox(height: 16),
         CustomProgressBar(
           label: 'Social Time',
-          current: currentData['social']!,
-          goal: currentGoals['social']!,
+          current: currentData['social'] ?? 0.0,
+          goal: currentGoals['social'] ?? 2.0,
           color: Colors.purple,
         ),
         const SizedBox(height: 16),
         CustomProgressBar(
           label: 'Rest',
-          current: currentData['rest']!,
-          goal: currentGoals['rest']!,
+          current: currentData['rest'] ?? 0.0,
+          goal: currentGoals['rest'] ?? 8.0,
           color: Colors.black,
         ),
       ],
@@ -262,10 +347,11 @@ class _HomeScreenState extends State<HomeScreen> {
         'icon': Icons.people_alt_outlined,
         'color': Colors.purple,
       },
+      {'name': 'Rest', 'icon': Icons.hotel_outlined, 'color': Colors.black},
     ];
 
     return Container(
-      margin: const EdgeInsets.all(16.0), // Increased margin
+      margin: const EdgeInsets.all(16.0),
       child: GridView.builder(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
@@ -273,7 +359,7 @@ class _HomeScreenState extends State<HomeScreen> {
           crossAxisCount: 2,
           crossAxisSpacing: 16,
           mainAxisSpacing: 16,
-          childAspectRatio: 1.2, // Slightly increased aspect ratio
+          childAspectRatio: 1.0,
         ),
         itemCount: activities.length,
         itemBuilder: (context, index) {
@@ -283,12 +369,12 @@ class _HomeScreenState extends State<HomeScreen> {
               activeActivity == activityName.toLowerCase().replaceAll(' ', '');
 
           return GestureDetector(
-            onTap: () =>
-                _toggleActivity(activityName.toLowerCase().replaceAll(' ', '')),
+            onTap: () async => await _toggleActivity(
+              activityName.toLowerCase().replaceAll(' ', ''),
+            ),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
-              transform: Matrix4.identity()
-                ..scale(isActive ? 1.03 : 1.0), // Reduced scale
+              transform: Matrix4.identity()..scale(isActive ? 1.03 : 1.0),
               child: Card(
                 elevation: isActive ? 8 : 4,
                 shape: RoundedRectangleBorder(
@@ -296,33 +382,33 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 color: isActive ? activity['color'] as Color : Colors.white,
                 child: Padding(
-                  padding: const EdgeInsets.all(12.0), // Reduced padding
+                  padding: const EdgeInsets.all(12.0),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
                         activity['icon'] as IconData,
-                        size: 40, // Slightly smaller icon
+                        size: 40,
                         color: isActive
                             ? Colors.white
                             : activity['color'] as Color,
                       ),
-                      const SizedBox(height: 8), // Reduced spacing
+                      const SizedBox(height: 8),
                       Text(
                         activityName,
                         style: TextStyle(
-                          fontSize: 14, // Smaller font
+                          fontSize: 14,
                           fontWeight: FontWeight.w600,
                           color: isActive ? Colors.white : Colors.black87,
                         ),
                         textAlign: TextAlign.center,
                       ),
                       if (isActive) ...[
-                        const SizedBox(height: 4), // Reduced spacing
+                        const SizedBox(height: 4),
                         const Text(
                           'Recording...',
                           style: TextStyle(
-                            fontSize: 11, // Smaller font
+                            fontSize: 11,
                             color: Colors.white70,
                             fontStyle: FontStyle.italic,
                           ),

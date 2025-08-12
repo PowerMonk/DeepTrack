@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'widgets/navbar.dart';
+import 'services/background_service.dart';
 
 void main() {
   runApp(const DeepTrackApp());
+
+  // Start background service for daily data transfers
+  BackgroundService.start();
 }
 
 class DeepTrackApp extends StatelessWidget {

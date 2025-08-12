@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/goals_service.dart';
 
 class GoalsScreen extends StatefulWidget {
   const GoalsScreen({super.key});
@@ -8,24 +9,36 @@ class GoalsScreen extends StatefulWidget {
 }
 
 class _GoalsScreenState extends State<GoalsScreen> {
-  // Default goals in hours
-  Map<String, double> dailyGoals = {
-    'work': 8.0,
-    'study': 4.0,
-    'exercise': 1.0,
-    'social': 2.0,
-    'rest': 8.0,
-  };
-
-  Map<String, double> weeklyGoals = {
-    'work': 40.0,
-    'study': 20.0,
-    'exercise': 5.0,
-    'social': 10.0,
-    'rest': 56.0,
-  };
-
+  Map<String, int> dailyGoalsMinutes = {};
+  Map<String, int> weeklyGoalsMinutes = {};
   bool isEditMode = false;
+  String currentUnit = 'hours'; // 'hours' or 'minutes'
+
+  @override
+  void initState() {
+    super.initState();
+    _loadGoals();
+  }
+
+  Future<void> _loadGoals() async {
+    final dailyGoals = await GoalsService.getDailyGoalsMinutes();
+    final weeklyGoals = await GoalsService.getWeeklyGoalsMinutes();
+    final unit = await GoalsService.getGoalsUnit();
+
+    if (mounted) {
+      setState(() {
+        dailyGoalsMinutes = dailyGoals;
+        weeklyGoalsMinutes = weeklyGoals;
+        currentUnit = unit;
+      });
+    }
+  }
+
+  Future<void> _saveGoals() async {
+    await GoalsService.saveDailyGoalsMinutes(dailyGoalsMinutes);
+    await GoalsService.saveWeeklyGoalsMinutes(weeklyGoalsMinutes);
+    await GoalsService.setGoalsUnit(currentUnit);
+  }
 
   String _getCurrentDate() {
     final now = DateTime.now();
@@ -46,33 +59,67 @@ class _GoalsScreenState extends State<GoalsScreen> {
     return '${months[now.month - 1]} ${now.day}, ${now.year}';
   }
 
-  void _toggleEditMode() {
+  Future<void> _toggleEditMode() async {
+    if (isEditMode) {
+      await _saveGoals();
+    }
     setState(() {
       isEditMode = !isEditMode;
     });
   }
 
-  String _formatTime(double hours) {
-    return '${hours.toStringAsFixed(hours == hours.toInt() ? 0 : 1)} hours';
+  void _toggleUnit() {
+    setState(() {
+      currentUnit = currentUnit == 'hours' ? 'minutes' : 'hours';
+    });
   }
 
   void _adjustGoal(String key, bool isDaily, bool increase) {
     setState(() {
-      double increment = 0.5;
+      double increment = currentUnit == 'hours'
+          ? 0.5
+          : 30; // 0.5 hours or 30 minutes
 
       if (isDaily) {
+        final currentValue = GoalsService.getGoalValueInUnit(
+          dailyGoalsMinutes[key]!,
+          currentUnit,
+        );
+        double newValue;
+
         if (increase) {
-          dailyGoals[key] = dailyGoals[key]! + increment;
-        } else if (dailyGoals[key]! > increment) {
-          dailyGoals[key] = dailyGoals[key]! - increment;
+          newValue = currentValue + increment;
+        } else {
+          newValue = (currentValue - increment).clamp(
+            increment,
+            double.infinity,
+          );
         }
+
+        dailyGoalsMinutes[key] = GoalsService.setGoalValueFromUnit(
+          newValue,
+          currentUnit,
+        );
       } else {
-        double weeklyIncrement = 1.0;
+        final currentValue = GoalsService.getGoalValueInUnit(
+          weeklyGoalsMinutes[key]!,
+          currentUnit,
+        );
+        double newValue;
+
         if (increase) {
-          weeklyGoals[key] = weeklyGoals[key]! + weeklyIncrement;
-        } else if (weeklyGoals[key]! > weeklyIncrement) {
-          weeklyGoals[key] = weeklyGoals[key]! - weeklyIncrement;
+          newValue = currentValue + increment;
+        } else {
+          newValue = (currentValue - increment).clamp(
+            increment,
+            double.infinity,
+          );
         }
+
+        weeklyGoalsMinutes[key] = GoalsService.setGoalValueFromUnit(
+          newValue,
+          currentUnit,
+        );
       }
     });
   }
@@ -139,52 +186,88 @@ class _GoalsScreenState extends State<GoalsScreen> {
   Widget _buildHeader() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Column(
         children: [
-          const Text(
-            'Your Goals',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Colors.black,
-            ),
-          ),
-          GestureDetector(
-            onTap: _toggleEditMode,
-            child: isEditMode
-                ? Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.black,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.save, color: Colors.white, size: 18),
-                        SizedBox(width: 4),
-                        Text(
-                          'Save',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Your Goals',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
+              ),
+              GestureDetector(
+                onTap: _toggleEditMode,
+                child: isEditMode
+                    ? Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
                         ),
-                      ],
-                    ),
-                  )
-                : const Text(
-                    'Edit',
-                    style: TextStyle(
-                      fontSize: 16,
+                        decoration: BoxDecoration(
+                          color: Colors.black,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.save, color: Colors.white, size: 18),
+                            SizedBox(width: 4),
+                            Text(
+                              'Save',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : const Text(
+                        'Edit',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black,
+                        ),
+                      ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // Unit toggle
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text(
+                'Display as: ',
+                style: TextStyle(fontSize: 14, color: Colors.black54),
+              ),
+              GestureDetector(
+                onTap: _toggleUnit,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Text(
+                    currentUnit == 'hours' ? 'Hours' : 'Minutes',
+                    style: const TextStyle(
+                      fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: Colors.black,
+                      color: Colors.white,
                     ),
                   ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -222,8 +305,17 @@ class _GoalsScreenState extends State<GoalsScreen> {
     return Column(
       children: activities.map((activity) {
         final key = activity['key'] as String;
-        final dailyGoal = dailyGoals[key]!;
-        final weeklyGoal = weeklyGoals[key]!;
+        final dailyGoalMinutes = dailyGoalsMinutes[key] ?? 0;
+        final weeklyGoalMinutes = weeklyGoalsMinutes[key] ?? 0;
+
+        final dailyGoalValue = GoalsService.getGoalValueInUnit(
+          dailyGoalMinutes,
+          currentUnit,
+        );
+        final weeklyGoalValue = GoalsService.getGoalValueInUnit(
+          weeklyGoalMinutes,
+          currentUnit,
+        );
 
         return Container(
           margin: const EdgeInsets.only(bottom: 16),
@@ -287,7 +379,10 @@ class _GoalsScreenState extends State<GoalsScreen> {
                                   ),
                                 if (isEditMode) const SizedBox(width: 8),
                                 Text(
-                                  _formatTime(dailyGoal),
+                                  GoalsService.formatTime(
+                                    dailyGoalValue,
+                                    currentUnit,
+                                  ),
                                   style: const TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.bold,
@@ -337,7 +432,10 @@ class _GoalsScreenState extends State<GoalsScreen> {
                                   ),
                                 if (isEditMode) const SizedBox(width: 8),
                                 Text(
-                                  _formatTime(weeklyGoal),
+                                  GoalsService.formatTime(
+                                    weeklyGoalValue,
+                                    currentUnit,
+                                  ),
                                   style: const TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.bold,
