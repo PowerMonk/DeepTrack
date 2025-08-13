@@ -61,11 +61,47 @@ class _DataScreenState extends State<DataScreen> {
       final filePath = await ExportService.exportToCSV();
 
       setState(() {
-        exportMessage = 'Exported to: $filePath';
+        exportMessage = 'Exported and path copied to clipboard!';
       });
 
-      // Auto-clear message after 5 seconds
-      Future.delayed(const Duration(seconds: 5), () {
+      // Show longer duration snackbar with clipboard confirmation
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Data exported successfully!',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                Text('File path copied to clipboard'),
+                const SizedBox(height: 4),
+                Text(
+                  filePath,
+                  style: const TextStyle(fontSize: 12),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+            duration: const Duration(seconds: 8), // Extended duration
+            backgroundColor: Colors.green,
+            action: SnackBarAction(
+              label: 'DISMISS',
+              textColor: Colors.white,
+              onPressed: () {
+                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+              },
+            ),
+          ),
+        );
+      }
+
+      // Auto-clear message after 8 seconds
+      Future.delayed(const Duration(seconds: 8), () {
         if (mounted) {
           setState(() {
             exportMessage = null;
@@ -76,6 +112,16 @@ class _DataScreenState extends State<DataScreen> {
       setState(() {
         exportMessage = 'Export failed: $e';
       });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Export failed: $e'),
+            duration: const Duration(seconds: 6),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -84,7 +130,7 @@ class _DataScreenState extends State<DataScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Database path copied to clipboard'),
-        duration: Duration(seconds: 2),
+        duration: Duration(seconds: 3),
       ),
     );
   }

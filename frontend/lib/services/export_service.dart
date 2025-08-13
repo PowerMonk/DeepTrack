@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'database_service.dart';
 
@@ -55,7 +56,12 @@ class ExportService {
       final file = File(filePath);
       await file.writeAsString(csvContent.toString());
 
+      // Copy file path to clipboard
+      await Clipboard.setData(ClipboardData(text: filePath));
+
       print('CSV exported to: $filePath');
+      print('File path copied to clipboard');
+
       return filePath;
     } catch (e) {
       print('Error exporting CSV: $e');

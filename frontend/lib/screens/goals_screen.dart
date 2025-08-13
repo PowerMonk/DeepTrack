@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../services/goals_service.dart';
-import '../services/export_service.dart';
 
 class GoalsScreen extends StatefulWidget {
   const GoalsScreen({super.key});
@@ -175,37 +174,8 @@ class _GoalsScreenState extends State<GoalsScreen> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _exportData,
-        backgroundColor: Colors.black,
-        child: const Icon(Icons.download, color: Colors.white),
-      ),
+      // Removed floating action button for export
     );
-  }
-
-  Future<void> _exportData() async {
-    try {
-      final filePath = await ExportService.exportToCSV();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Data exported to: $filePath'),
-            duration: const Duration(seconds: 3),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Export failed: $e'),
-            duration: const Duration(seconds: 3),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
   }
 
   Widget _buildHeader() {
