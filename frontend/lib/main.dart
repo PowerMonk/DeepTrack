@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
 import 'widgets/navbar.dart';
 import 'services/background_service.dart';
+import 'services/workmanager_service.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize workmanager for daily SQLite uploads
+  await WorkManagerService.initialize();
+
   runApp(const DeepTrackApp());
 
   // Start background service for daily data transfers

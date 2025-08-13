@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import '../services/usage_stats_service.dart';
+import '../services/time_tracking_service.dart';
+import '../services/goals_service.dart';
 
 class StatsScreen extends StatefulWidget {
   const StatsScreen({super.key});
@@ -16,59 +18,36 @@ class _StatsScreenState extends State<StatsScreen> {
   bool hasPermission = false;
   bool isLoadingUsageData = true;
 
-  // Mock data for statistics
-  final Map<String, Map<String, double>> statsData = {
-    'daily': {
-      'work': 2.5,
-      'study': 1.8,
-      'exercise': 0.5,
-      'social': 3.2,
-      'rest': 6.0,
-    },
-    'weekly': {
-      'work': 15.0,
-      'study': 12.5,
-      'exercise': 3.5,
-      'social': 22.4,
-      'rest': 42.0,
-    },
-    'monthly': {
-      'work': 65.0,
-      'study': 52.0,
-      'exercise': 15.5,
-      'social': 95.6,
-      'rest': 180.0,
-    },
-  };
-
-  final Map<String, double> dailyGoals = {
-    'work': 8.0,
-    'study': 4.0,
-    'exercise': 1.0,
-    'social': 2.0,
-    'rest': 8.0,
-  };
-
-  final Map<String, double> weeklyGoals = {
-    'work': 40.0,
-    'study': 20.0,
-    'exercise': 7.0,
-    'social': 10.0,
-    'rest': 56.0,
-  };
-
-  final Map<String, double> monthlyGoals = {
-    'work': 160.0,
-    'study': 80.0,
-    'exercise': 30.0,
-    'social': 40.0,
-    'rest': 240.0,
-  };
+  // Real data from time tracking service
+  Map<String, int> realDailyData = {};
+  Map<String, int> realGoalsData = {};
+  bool isLoadingTrackingData = true;
 
   @override
   void initState() {
     super.initState();
     _initializeUsageData();
+    _loadTrackingData();
+  }
+
+  Future<void> _loadTrackingData() async {
+    try {
+      final dailyData = await TimeTrackingService.getDailyData();
+      final goalsData = await GoalsService.getDailyGoalsMinutes();
+
+      if (mounted) {
+        setState(() {
+          realDailyData = dailyData;
+          realGoalsData = goalsData;
+          isLoadingTrackingData = false;
+        });
+      }
+    } catch (e) {
+      print('Error loading tracking data: $e');
+      setState(() {
+        isLoadingTrackingData = false;
+      });
+    }
   }
 
   Future<void> _initializeUsageData() async {
@@ -77,7 +56,11 @@ class _StatsScreenState extends State<StatsScreen> {
 
       if (hasPermission) {
         installedSocialApps = await UsageStatsService.getInstalledSocialApps();
+
+        // Get fresh daily social media usage data
         realSocialMediaData = await UsageStatsService.getSocialMediaUsage();
+
+        print('Social media usage refreshed: $realSocialMediaData');
 
         // Filter to only show installed apps or fallback to YouTube and Instagram
         if (realSocialMediaData.isEmpty) {
@@ -102,9 +85,11 @@ class _StatsScreenState extends State<StatsScreen> {
       realSocialMediaData = {'Instagram': 0.0, 'YouTube': 0.0};
       installedSocialApps = ['Instagram', 'YouTube'];
     } finally {
-      setState(() {
-        isLoadingUsageData = false;
-      });
+      if (mounted) {
+        setState(() {
+          isLoadingUsageData = false;
+        });
+      }
     }
   }
 
@@ -128,24 +113,68 @@ class _StatsScreenState extends State<StatsScreen> {
   }
 
   Map<String, double> _getCurrentGoals() {
+    if (isLoadingTrackingData) {
+      return {
+        'work': 8.0,
+        'study': 4.0,
+        'exercise': 1.0,
+        'social': 2.0,
+        'rest': 8.0,
+      };
+    }
+
     switch (currentPeriod) {
       case 'Weekly':
-        return weeklyGoals;
+        // Multiply daily goals by 7 for weekly view
+        return realGoalsData.map(
+          (key, value) =>
+              MapEntry(key, TimeTrackingService.minutesToHours(value * 7)),
+        );
       case 'Monthly':
-        return monthlyGoals;
+        // Multiply daily goals by 30 for monthly view
+        return realGoalsData.map(
+          (key, value) =>
+              MapEntry(key, TimeTrackingService.minutesToHours(value * 30)),
+        );
       default:
-        return dailyGoals;
+        // Convert minutes to hours for daily view
+        return realGoalsData.map(
+          (key, value) =>
+              MapEntry(key, TimeTrackingService.minutesToHours(value)),
+        );
     }
   }
 
   Map<String, double> _getCurrentData() {
+    if (isLoadingTrackingData) {
+      return {
+        'work': 0.0,
+        'study': 0.0,
+        'exercise': 0.0,
+        'social': 0.0,
+        'rest': 0.0,
+      };
+    }
+
     switch (currentPeriod) {
       case 'Weekly':
-        return statsData['weekly']!;
+        // Multiply daily data by 7 for weekly view (placeholder logic)
+        return realDailyData.map(
+          (key, value) =>
+              MapEntry(key, TimeTrackingService.minutesToHours(value * 7)),
+        );
       case 'Monthly':
-        return statsData['monthly']!;
+        // Multiply daily data by 30 for monthly view (placeholder logic)
+        return realDailyData.map(
+          (key, value) =>
+              MapEntry(key, TimeTrackingService.minutesToHours(value * 30)),
+        );
       default:
-        return statsData['daily']!;
+        // Convert minutes to hours for daily view
+        return realDailyData.map(
+          (key, value) =>
+              MapEntry(key, TimeTrackingService.minutesToHours(value)),
+        );
     }
   }
 
@@ -284,7 +313,11 @@ class _StatsScreenState extends State<StatsScreen> {
       children: ['Daily', 'Weekly', 'Monthly'].map((period) {
         final isSelected = currentPeriod == period;
         return GestureDetector(
-          onTap: () => setState(() => currentPeriod = period),
+          onTap: () {
+            setState(() => currentPeriod = period);
+            // Reload data when period changes
+            _loadTrackingData();
+          },
           child: Container(
             margin: const EdgeInsets.only(right: 8),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -463,11 +496,23 @@ class _StatsScreenState extends State<StatsScreen> {
                 ),
                 if (hasPermission)
                   GestureDetector(
-                    onTap: _initializeUsageData,
-                    child: const Icon(
-                      Icons.refresh,
-                      color: Colors.black54,
-                      size: 20,
+                    onTap: () async {
+                      setState(() {
+                        isLoadingUsageData = true;
+                      });
+                      await _initializeUsageData();
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.refresh,
+                        color: Colors.black,
+                        size: 20,
+                      ),
                     ),
                   ),
               ],

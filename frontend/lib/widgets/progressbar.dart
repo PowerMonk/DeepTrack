@@ -5,6 +5,7 @@ class CustomProgressBar extends StatelessWidget {
   final double current;
   final double goal;
   final Color color;
+  final String unit;
 
   const CustomProgressBar({
     super.key,
@@ -12,6 +13,7 @@ class CustomProgressBar extends StatelessWidget {
     required this.current,
     required this.goal,
     required this.color,
+    required this.unit,
   });
 
   @override
@@ -33,7 +35,7 @@ class CustomProgressBar extends StatelessWidget {
               ),
             ),
             Text(
-              '${current.toStringAsFixed(1)}h / ${goal.toStringAsFixed(0)}h',
+              '${current.toStringAsFixed(1)}$unit / ${goal.toStringAsFixed(0)}$unit',
               style: const TextStyle(fontSize: 14, color: Colors.black54),
             ),
           ],

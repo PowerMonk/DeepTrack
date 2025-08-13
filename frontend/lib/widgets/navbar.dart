@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../screens/home_screen.dart';
 import '../screens/goals_screen.dart';
 import '../screens/stats_screen.dart';
+import '../screens/data_screen.dart';
 
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
@@ -17,6 +18,7 @@ class _MainNavigationState extends State<MainNavigation> {
     const HomeScreen(),
     const GoalsScreen(),
     const StatsScreen(),
+    const DataScreen(),
   ];
 
   @override
@@ -69,6 +71,11 @@ class _MainNavigationState extends State<MainNavigation> {
               icon: Icon(Icons.bar_chart_outlined),
               activeIcon: Icon(Icons.bar_chart),
               label: 'Stats',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.storage_outlined),
+              activeIcon: Icon(Icons.storage),
+              label: 'Data',
             ),
           ],
         ),

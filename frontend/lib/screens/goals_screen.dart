@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/goals_service.dart';
+import '../services/export_service.dart';
 
 class GoalsScreen extends StatefulWidget {
   const GoalsScreen({super.key});
@@ -65,12 +66,6 @@ class _GoalsScreenState extends State<GoalsScreen> {
     }
     setState(() {
       isEditMode = !isEditMode;
-    });
-  }
-
-  void _toggleUnit() {
-    setState(() {
-      currentUnit = currentUnit == 'hours' ? 'minutes' : 'hours';
     });
   }
 
@@ -180,7 +175,37 @@ class _GoalsScreenState extends State<GoalsScreen> {
           ],
         ),
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _exportData,
+        backgroundColor: Colors.black,
+        child: const Icon(Icons.download, color: Colors.white),
+      ),
     );
+  }
+
+  Future<void> _exportData() async {
+    try {
+      final filePath = await ExportService.exportToCSV();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Data exported to: $filePath'),
+            duration: const Duration(seconds: 3),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Export failed: $e'),
+            duration: const Duration(seconds: 3),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildHeader() {
@@ -238,37 +263,6 @@ class _GoalsScreenState extends State<GoalsScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          // Unit toggle
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text(
-                'Display as: ',
-                style: TextStyle(fontSize: 14, color: Colors.black54),
-              ),
-              GestureDetector(
-                onTap: _toggleUnit,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.black,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Text(
-                    currentUnit == 'hours' ? 'Hours' : 'Minutes',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
         ],
       ),
     );
@@ -293,6 +287,12 @@ class _GoalsScreenState extends State<GoalsScreen> {
         'key': 'exercise',
         'icon': Icons.fitness_center_outlined,
         'color': Colors.orange,
+      },
+      {
+        'name': 'Social Time',
+        'key': 'social',
+        'icon': Icons.people_alt_outlined,
+        'color': Colors.purple,
       },
       {
         'name': 'Rest',

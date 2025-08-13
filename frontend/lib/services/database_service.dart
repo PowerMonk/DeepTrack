@@ -87,4 +87,9 @@ class DatabaseService {
     final db = await database;
     await db.delete(tableName, where: 'date = ?', whereArgs: [date]);
   }
+
+  // Get the database file path
+  static Future<String> getDatabasePath() async {
+    return join(await getDatabasesPath(), 'deeptrack.db');
+  }
 }

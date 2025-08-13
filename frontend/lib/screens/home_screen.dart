@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../widgets/progressbar.dart';
 import '../services/time_tracking_service.dart';
 import '../services/goals_service.dart';
+import '../services/export_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -34,14 +35,18 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadGoals() async {
-    final daily = await GoalsService.getDailyGoalsHours();
-    final weekly = await GoalsService.getWeeklyGoalsHours();
+    final dailyHours = await GoalsService.getDailyGoalsHours();
+    final weeklyHours = await GoalsService.getWeeklyGoalsHours();
+
     if (mounted) {
       setState(() {
-        dailyGoals = daily;
-        weeklyGoals = weekly;
+        dailyGoals = dailyHours;
+        weeklyGoals = weeklyHours;
       });
     }
+    print(
+      'Loaded goals - Daily (hours): $dailyGoals, Weekly (hours): $weeklyGoals',
+    );
   }
 
   Future<void> _debugPrintData() async {
@@ -83,6 +88,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // Weekly data (multiply daily by 7 for now - you can implement proper weekly tracking later)
   Map<String, double> get weeklyHours {
+    // This is a placeholder for weekly data aggregation.
+    // A proper implementation would fetch weekly data from the database.
     return dailyHours.map((key, value) => MapEntry(key, value * 7));
   }
 
@@ -205,7 +212,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Minutes tracked today: ${dailyData.values.reduce((a, b) => a + b)}',
+                          'Hours tracked today: ${dailyData.values.reduce((a, b) => a + b) / 60.0}',
                           style: const TextStyle(color: Colors.blue),
                         ),
                       ],
@@ -221,7 +228,37 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _exportData,
+        backgroundColor: Colors.black,
+        child: const Icon(Icons.download, color: Colors.white),
+      ),
     );
+  }
+
+  Future<void> _exportData() async {
+    try {
+      final filePath = await ExportService.exportToCSV();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Data exported to: $filePath'),
+            duration: const Duration(seconds: 3),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Export failed: $e'),
+            duration: const Duration(seconds: 3),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildProgressCard() {
@@ -258,7 +295,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildToggleButton() {
     return GestureDetector(
-      onTap: () => setState(() => isDaily = !isDaily),
+      onTap: () {
+        setState(() => isDaily = !isDaily);
+        _loadGoals(); // Reload goals when toggling
+      },
       child: AnimatedSwitcher(
         duration: const Duration(milliseconds: 300),
         transitionBuilder: (Widget child, Animation<double> animation) {
@@ -290,6 +330,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildProgressBars() {
+    // Always show hours for both daily and weekly
     final currentData = isDaily ? dailyHours : weeklyHours;
     final currentGoals = isDaily ? dailyGoals : weeklyGoals;
 
@@ -298,36 +339,41 @@ class _HomeScreenState extends State<HomeScreen> {
         CustomProgressBar(
           label: 'Work',
           current: currentData['work'] ?? 0.0,
-          goal: currentGoals['work'] ?? 8.0,
+          goal: currentGoals['work'] ?? (isDaily ? 8.0 : 40.0),
           color: Colors.blue,
+          unit: 'h',
         ),
         const SizedBox(height: 16),
         CustomProgressBar(
           label: 'Study',
           current: currentData['study'] ?? 0.0,
-          goal: currentGoals['study'] ?? 4.0,
+          goal: currentGoals['study'] ?? (isDaily ? 4.0 : 20.0),
           color: Colors.green,
+          unit: 'h',
         ),
         const SizedBox(height: 16),
         CustomProgressBar(
           label: 'Exercise',
           current: currentData['exercise'] ?? 0.0,
-          goal: currentGoals['exercise'] ?? 1.0,
+          goal: currentGoals['exercise'] ?? (isDaily ? 1.0 : 7.0),
           color: Colors.orange,
+          unit: 'h',
         ),
         const SizedBox(height: 16),
         CustomProgressBar(
           label: 'Social Time',
           current: currentData['social'] ?? 0.0,
-          goal: currentGoals['social'] ?? 2.0,
+          goal: currentGoals['social'] ?? (isDaily ? 2.0 : 14.0),
           color: Colors.purple,
+          unit: 'h',
         ),
         const SizedBox(height: 16),
         CustomProgressBar(
           label: 'Rest',
           current: currentData['rest'] ?? 0.0,
-          goal: currentGoals['rest'] ?? 8.0,
+          goal: currentGoals['rest'] ?? (isDaily ? 8.0 : 56.0),
           color: Colors.black,
+          unit: 'h',
         ),
       ],
     );
