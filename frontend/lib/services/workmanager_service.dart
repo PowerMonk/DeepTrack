@@ -7,7 +7,19 @@ void callbackDispatcher() {
     print("WorkManager: Starting daily data upload task");
 
     try {
-      // Check and save to database if needed
+      // FIRST: Check if there are any active activities and stop them
+      final currentActivity = await TimeTrackingService.getCurrentActivity();
+      if (currentActivity != null) {
+        print(
+          "WorkManager: Found active activity '$currentActivity', stopping it before database save",
+        );
+        await TimeTrackingService.stopCurrentActivity();
+        print("WorkManager: Successfully stopped active activity");
+      } else {
+        print("WorkManager: No active activities found");
+      }
+
+      // SECOND: Now safely save to database (all activities should have proper timestamps)
       await TimeTrackingService.checkAndSaveToDatabaseIfNeeded();
       print("WorkManager: Daily data upload completed successfully");
       return Future.value(true);
@@ -67,5 +79,36 @@ class WorkManagerService {
 
   static Future<void> rescheduleTask() async {
     await initialize();
+  }
+
+  // Manual trigger for testing the daily upload process
+  static Future<bool> triggerManualUpload() async {
+    try {
+      print("WorkManager: Manual trigger - Starting daily data upload");
+
+      // FIRST: Check if there are any active activities and stop them
+      final currentActivity = await TimeTrackingService.getCurrentActivity();
+      if (currentActivity != null) {
+        print(
+          "WorkManager: Manual trigger - Found active activity '$currentActivity', stopping it",
+        );
+        await TimeTrackingService.stopCurrentActivity();
+        print(
+          "WorkManager: Manual trigger - Successfully stopped active activity",
+        );
+      } else {
+        print("WorkManager: Manual trigger - No active activities found");
+      }
+
+      // SECOND: Now safely save to database
+      await TimeTrackingService.checkAndSaveToDatabaseIfNeeded();
+      print(
+        "WorkManager: Manual trigger - Daily data upload completed successfully",
+      );
+      return true;
+    } catch (e) {
+      print("WorkManager: Manual trigger - Error during daily data upload: $e");
+      return false;
+    }
   }
 }

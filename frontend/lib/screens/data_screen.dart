@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/database_service.dart';
 import '../services/export_service.dart';
+import '../services/workmanager_service.dart';
 
 class DataScreen extends StatefulWidget {
   const DataScreen({super.key});
@@ -48,6 +49,76 @@ class _DataScreenState extends State<DataScreen> {
         setState(() {
           isLoading = false;
         });
+      }
+    }
+  }
+
+  Future<void> _testWorkManagerUpload() async {
+    try {
+      setState(() {
+        exportMessage = 'Testing WorkManager upload...';
+      });
+
+      final success = await WorkManagerService.triggerManualUpload();
+
+      if (success) {
+        setState(() {
+          exportMessage = 'WorkManager upload test completed successfully!';
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'WorkManager upload test completed! Check logs for details.',
+              ),
+              duration: Duration(seconds: 5),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+
+        // Reload data to show any new database entries
+        await _loadData();
+      } else {
+        setState(() {
+          exportMessage = 'WorkManager upload test failed!';
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'WorkManager upload test failed! Check logs for errors.',
+              ),
+              duration: Duration(seconds: 5),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+
+      // Auto-clear message after 5 seconds
+      Future.delayed(const Duration(seconds: 5), () {
+        if (mounted) {
+          setState(() {
+            exportMessage = null;
+          });
+        }
+      });
+    } catch (e) {
+      setState(() {
+        exportMessage = 'WorkManager test error: $e';
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('WorkManager test error: $e'),
+            duration: const Duration(seconds: 5),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }
@@ -200,6 +271,12 @@ class _DataScreenState extends State<DataScreen> {
           IconButton(
             onPressed: _loadData,
             icon: const Icon(Icons.refresh, color: Colors.black),
+            tooltip: 'Refresh Data',
+          ),
+          IconButton(
+            onPressed: _testWorkManagerUpload,
+            icon: const Icon(Icons.upload, color: Colors.orange),
+            tooltip: 'Test WorkManager Upload',
           ),
         ],
       ),
